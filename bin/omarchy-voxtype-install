@@ -7,11 +7,6 @@ set -e
 
 # Install voxtype and configure it for use.
 
-if ! grep -qw avx2 /proc/cpuinfo; then
-  echo "Voxtype Dictation requires AVX2 on this hardware and cannot be installed." >&2
-  exit 1
-fi
-
 if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
   omarchy-pkg-add wtype voxtype-bin
 
@@ -20,7 +15,8 @@ if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
   cp "$OMARCHY_PATH/default/voxtype/config.toml" ~/.config/voxtype/
 
   voxtype setup --download --no-post-install
-  if omarchy-hw-vulkan; then
+  # Voxtype's Vulkan build needs AVX2; without it the package keeps its baseline CPU build
+  if omarchy-hw-vulkan && grep -qw avx2 /proc/cpuinfo; then
     voxtype setup gpu --enable || true
   fi
   voxtype setup systemd

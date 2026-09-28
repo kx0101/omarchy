@@ -31,21 +31,23 @@ SH
 done
 cat >"$mock_bin/omarchy-hw-vulkan" <<'SH'
 #!/bin/bash
-exit 1
+exit 0
 SH
 chmod +x "$mock_bin"/*
 
-if HOME="$test_tmp/home" OMARCHY_PATH="$ROOT" OMARCHY_TEST_CALL_LOG="$call_log" \
-  PATH="$mock_bin:$PATH" bash "$ROOT/bin/omarchy-voxtype-install" \
-  >"$test_tmp/output" 2>&1; then
-  fail "Voxtype installer rejects CPUs without AVX2"
-fi
+HOME="$test_tmp/home" OMARCHY_PATH="$ROOT" OMARCHY_TEST_CALL_LOG="$call_log" \
+  PATH="$mock_bin:$PATH" bash "$ROOT/bin/omarchy-voxtype-install"
 
-grep -Fq "Voxtype Dictation requires AVX2" "$test_tmp/output" ||
-  fail "Voxtype installer explains the AVX2 requirement" "$(cat "$test_tmp/output")"
-[[ ! -s $call_log ]] ||
-  fail "Voxtype installer stops before prompting or installing on an incompatible CPU" "$(cat "$call_log")"
-pass "Voxtype installer rejects incompatible CPUs before prompting or installing"
+grep -Fq "omarchy-pkg-add:wtype voxtype-bin" "$call_log" ||
+  fail "Voxtype installer installs its packages on CPUs without AVX2" "$(cat "$call_log")"
+grep -Fq "voxtype:setup --download --no-post-install" "$call_log" ||
+  fail "Voxtype installer downloads its model on CPUs without AVX2" "$(cat "$call_log")"
+grep -Fq "voxtype:setup systemd" "$call_log" ||
+  fail "Voxtype installer enables its service on CPUs without AVX2" "$(cat "$call_log")"
+if grep -Fq "voxtype:setup gpu" "$call_log"; then
+  fail "Voxtype installer keeps the CPU build on CPUs without AVX2, even with Vulkan" "$(cat "$call_log")"
+fi
+pass "Voxtype installer keeps the CPU build on CPUs without AVX2"
 
 : >"$call_log"
 HOME="$test_tmp/home" OMARCHY_PATH="$ROOT" OMARCHY_TEST_CALL_LOG="$call_log" \
@@ -53,9 +55,11 @@ HOME="$test_tmp/home" OMARCHY_PATH="$ROOT" OMARCHY_TEST_CALL_LOG="$call_log" \
   bash "$ROOT/bin/omarchy-voxtype-install"
 
 grep -Fq "gum:confirm Install Voxtype + AI model (~150MB) to enable dictation?" "$call_log" ||
-  fail "Voxtype installer still prompts on compatible CPUs" "$(cat "$call_log")"
+  fail "Voxtype installer still prompts on AVX2 CPUs" "$(cat "$call_log")"
 grep -Fq "omarchy-pkg-add:wtype voxtype-bin" "$call_log" ||
-  fail "Voxtype installer still installs its packages on compatible CPUs" "$(cat "$call_log")"
+  fail "Voxtype installer still installs its packages on AVX2 CPUs" "$(cat "$call_log")"
 grep -Fq "voxtype:setup --download --no-post-install" "$call_log" ||
-  fail "Voxtype installer still downloads its model on compatible CPUs" "$(cat "$call_log")"
+  fail "Voxtype installer still downloads its model on AVX2 CPUs" "$(cat "$call_log")"
+grep -Fq "voxtype:setup gpu --enable" "$call_log" ||
+  fail "Voxtype installer still enables Vulkan on AVX2 CPUs" "$(cat "$call_log")"
 pass "Voxtype installer keeps the existing setup flow on AVX2 CPUs"
